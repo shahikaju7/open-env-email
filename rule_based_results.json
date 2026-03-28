@@ -1,0 +1,40 @@
+{
+  "task_easy": {
+    "total_score": 1.0,
+    "steps_taken": 11,
+    "grader_breakdown": {
+      "total_score": 1.0,
+      "emails_labeled": 10,
+      "total_emails": 10
+    },
+    "method": "rule-based keyword matching",
+    "api_calls": 0,
+    "cost_usd": 0.0
+  },
+  "task_medium": {
+    "total_score": 1.0,
+    "steps_taken": 21,
+    "grader_breakdown": {
+      "total_score": 1.0,
+      "label_score": 1.0,
+      "priority_score": 1.0
+    },
+    "method": "rule-based keyword matching",
+    "api_calls": 0,
+    "cost_usd": 0.0
+  },
+  "task_hard": {
+    "total_score": 0.7683,
+    "steps_taken": 29,
+    "grader_breakdown": {
+      "total_score": 0.7683,
+      "label_score": 1.0,
+      "priority_score": 1.0,
+      "reply_score": 0.738,
+      "escalation_score": 0.3
+    },
+    "method": "rule-based keyword matching",
+    "api_calls": 0,
+    "cost_usd": 0.0
+  }
+}

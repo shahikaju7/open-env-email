@@ -1,0 +1,122 @@
+[
+  {
+    "id": "e001",
+    "subject": "URGENT: Production server is down",
+    "sender": "ops-alert@company.com",
+    "body": "Our main API server has been unresponsive for 15 minutes. Customers cannot log in. Immediate action required.",
+    "timestamp": "2024-03-15T02:14:00Z",
+    "thread_id": null,
+    "_true_label": "urgent",
+    "_true_priority": 1,
+    "_requires_reply": false,
+    "_requires_escalation": true
+  },
+  {
+    "id": "e002",
+    "subject": "Invoice #4821 we were charged twice",
+    "sender": "billing@acmecorp.com",
+    "body": "Hi, we were charged twice for last month subscription. Please issue a refund or apply a credit. Thank you.",
+    "timestamp": "2024-03-15T08:30:00Z",
+    "thread_id": null,
+    "_true_label": "billing",
+    "_true_priority": 2,
+    "_requires_reply": true,
+    "_requires_escalation": false
+  },
+  {
+    "id": "e003",
+    "subject": "Cannot reset my password",
+    "sender": "user123@gmail.com",
+    "body": "I have tried resetting my password three times but never receive the reset email. Can you help me regain access?",
+    "timestamp": "2024-03-15T09:05:00Z",
+    "thread_id": null,
+    "_true_label": "support",
+    "_true_priority": 3,
+    "_requires_reply": true,
+    "_requires_escalation": false
+  },
+  {
+    "id": "e004",
+    "subject": "Patent infringement claim legal notice",
+    "sender": "legal@lawfirm.com",
+    "body": "Our client alleges your product infringes a patent. Please forward to your legal counsel immediately. Response required within 14 days.",
+    "timestamp": "2024-03-15T10:00:00Z",
+    "thread_id": null,
+    "_true_label": "legal",
+    "_true_priority": 1,
+    "_requires_reply": false,
+    "_requires_escalation": true
+  },
+  {
+    "id": "e005",
+    "subject": "You have won a 500 dollar gift card",
+    "sender": "noreply@promo-deals.biz",
+    "body": "Congratulations! You have been selected as our lucky winner. Click here to claim your prize before it expires tonight.",
+    "timestamp": "2024-03-15T11:00:00Z",
+    "thread_id": null,
+    "_true_label": "spam",
+    "_true_priority": 5,
+    "_requires_reply": false,
+    "_requires_escalation": false
+  },
+  {
+    "id": "e006",
+    "subject": "New hire onboarding docs please sign by Friday",
+    "sender": "hr@company.com",
+    "body": "Please review and sign the attached onboarding documents for our new hire starting Monday. Must be returned by end of day Friday.",
+    "timestamp": "2024-03-15T09:00:00Z",
+    "thread_id": null,
+    "_true_label": "hr",
+    "_true_priority": 2,
+    "_requires_reply": true,
+    "_requires_escalation": false
+  },
+  {
+    "id": "e007",
+    "subject": "Getting rate limit errors on your API since morning",
+    "sender": "dev@startup.io",
+    "body": "We are hitting 429 errors on your API starting around 8am. Our product integration is completely broken and customers are complaining.",
+    "timestamp": "2024-03-15T10:45:00Z",
+    "thread_id": null,
+    "_true_label": "support",
+    "_true_priority": 2,
+    "_requires_reply": true,
+    "_requires_escalation": false
+  },
+  {
+    "id": "e008",
+    "subject": "We would like to cancel our subscription",
+    "sender": "customer@bigclient.com",
+    "body": "We would like to cancel our Enterprise subscription at end of this billing cycle. Please confirm and let us know the required steps.",
+    "timestamp": "2024-03-15T11:30:00Z",
+    "thread_id": null,
+    "_true_label": "billing",
+    "_true_priority": 2,
+    "_requires_reply": true,
+    "_requires_escalation": false
+  },
+  {
+    "id": "e009",
+    "subject": "Free webinar invite AI Trends 2025",
+    "sender": "events@techconf.com",
+    "body": "Join us for a free webinar on the future of AI. Register now to secure your spot. Limited seats available.",
+    "timestamp": "2024-03-15T12:00:00Z",
+    "thread_id": null,
+    "_true_label": "spam",
+    "_true_priority": 5,
+    "_requires_reply": false,
+    "_requires_escalation": false
+  },
+  {
+    "id": "e010",
+    "subject": "Possible GDPR data breach urgent legal review needed",
+    "sender": "security@partner.com",
+    "body": "We detected that a shared dataset may have been exposed to unauthorized parties. This could be a GDPR data breach. Immediate legal review recommended.",
+    "timestamp": "2024-03-15T13:00:00Z",
+    "thread_id": null,
+    "_true_label": "legal",
+    "_true_priority": 1,
+    "_requires_reply": false,
+    "_requires_escalation": true
+  }
+]
