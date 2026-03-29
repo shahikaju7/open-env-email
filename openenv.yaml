@@ -1,0 +1,64 @@
+name: email-triage-env
+version: "1.0.0"
+description: >
+  A realistic email triage environment where an AI agent manages
+  a business inbox by labeling, prioritizing, and drafting replies.
+author: your-hf-username
+license: MIT
+
+observation_space:
+  type: dict
+  fields:
+    inbox:
+      type: list
+      items:
+        type: dict
+        fields:
+          id:        { type: string }
+          subject:   { type: string }
+          sender:    { type: string }
+          body:      { type: string }
+          timestamp: { type: string }
+    current_step:  { type: integer }
+    max_steps:     { type: integer }
+    task_id:       { type: string }
+    instructions:  { type: string }
+    score_so_far:  { type: float }
+
+action_space:
+  type: dict
+  fields:
+    action_type:
+      type: string
+      enum: [label, prioritize, reply, escalate, archive, done]
+    email_id:    { type: string }
+    label:       { type: string, nullable: true }
+    priority:    { type: integer, nullable: true }
+    reply_body:  { type: string, nullable: true }
+    escalate_to: { type: string, nullable: true }
+
+tasks:
+  - id: task_easy
+    name: "Email Labeling"
+    difficulty: easy
+    description: "Label 10 emails with correct category."
+    max_steps: 15
+    score_range: [0.0, 1.0]
+
+  - id: task_medium
+    name: "Label and Prioritize"
+    difficulty: medium
+    description: "Label and assign priority to 10 emails."
+    max_steps: 25
+    score_range: [0.0, 1.0]
+
+  - id: task_hard
+    name: "Full Triage"
+    difficulty: hard
+    description: "Label, prioritize, reply, and escalate 10 emails."
+    max_steps: 40
+    score_range: [0.0, 1.0]
+
+reward:
+  type: shaped
+  description: Per-step partial-credit reward between 0.0 and 1.0.
