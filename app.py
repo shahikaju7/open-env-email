@@ -9,10 +9,8 @@ from pydantic import BaseModel as PydanticBase
 from env.email_env import EmailTriageEnv
 from env.models import Action
 
-# ── FastAPI app (handles HTTP pings from validator) ───────────
 api = FastAPI()
 
-# Store one env instance per session (simple, works for validator)
 _env_store = {}
 
 
@@ -56,7 +54,6 @@ def step(action: dict):
         return JSONResponse(content={"error": str(e)}, status_code=400)
 
 
-# ── Gradio UI ─────────────────────────────────────────────────
 def run_episode(task_id, seed):
     from baseline.agent import RuleBasedAgent
     env   = EmailTriageEnv(task_id=task_id, seed=int(seed))
@@ -132,6 +129,5 @@ requests.post(f"{BASE}/step", json={"action_type":"label","email_id":"e001","lab
 
    """)
 
-── Mount Gradio inside FastAPI and run both ──────────────────
 app = gr.mount_gradio_app(api, gradio_ui, path="/")
-if name == "main": uvicorn.run(app, host="0.0.0.0", port=7860)
+# Removed: if __name__ == "__main__": uvicorn.run(app, host="0.0.0.0", port=7860)
