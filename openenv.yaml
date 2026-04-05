@@ -1,9 +1,9 @@
-yaml_content = """name: email-triage-env
+name: email-triage-env
 version: "1.0.0"
 description: >
   A realistic email triage environment where an AI agent manages
   a business inbox by labeling, prioritizing, and drafting replies.
-author: OpenEnv Community
+author: your-hf-username
 license: MIT
 
 observation_space:
@@ -62,9 +62,3 @@ tasks:
 reward:
   type: shaped
   description: Per-step partial-credit reward between 0.0 and 1.0.
-"""
-
-with open("openenv.yaml", "w") as f:
-    f.write(yaml_content)
-
-print("openenv.yaml written")
