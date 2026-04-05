@@ -2,7 +2,7 @@ readme = """---
 title: EmailTriageEnv
 emoji: 📬
 colorFrom: purple
-colorTo: blue
+colorTo: teal
 sdk: docker
 pinned: false
 license: mit
@@ -91,3 +91,5 @@ python inference.py
 | MODEL_NAME | meta-llama/Llama-3.1-8B-Instruct |
 | HF_TOKEN | your hf_ token |
 """
+
+print("README.md updated")
