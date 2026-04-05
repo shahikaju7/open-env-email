@@ -1,26 +1,62 @@
+code = '''
 import sys
 import os
 import json
 import time
 
-# Fix path so env/ folder is always found
-sys.path.insert(0, os.getcwd())
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from openai import OpenAI
 from env.email_env import EmailTriageEnv
 from env.models import Action
 
-# ── Read environment variables ─────────────────────────────────
-API_BASE_URL = os.environ.get("API_BASE_URL") or "https://router.huggingface.co/v1"
-MODEL_NAME   = os.environ.get("MODEL_NAME")   or "meta-llama/Llama-3.1-8B-Instruct"
-HF_TOKEN     = os.environ.get("HF_TOKEN")     or "dummy-key"
+# ── Environment variables ──────────────────────────────────────
+API_BASE_URL = os.getenv("API_BASE_URL") or "https://router.huggingface.co/v1"
+MODEL_NAME   = os.getenv("MODEL_NAME")   or "meta-llama/Llama-3.1-8B-Instruct"
+API_KEY      = os.getenv("HF_TOKEN")     or "dummy-key"
 
-# ── OpenAI client (required by submission rules) ───────────────
-client = OpenAI(
-    base_url=API_BASE_URL,
-    api_key=HF_TOKEN,
-)
+TEMPERATURE      = 0.1
+MAX_TOKENS       = 300
+MAX_STEPS        = 40
+MAX_TOTAL_REWARD = 10.0
+SUCCESS_SCORE_THRESHOLD = 0.5
+TASK_NAME        = "email-triage"
+BENCHMARK        = "EmailTriageEnv"
 
+# ── OpenAI client ──────────────────────────────────────────────
+client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
+
+# ── Structured log functions (exact format required) ───────────
+def log_start(task, env, model):
+    print(json.dumps({
+        "event":     "START",
+        "task":      task,
+        "env":       env,
+        "model":     model,
+        "timestamp": time.time(),
+    }), flush=True)
+
+def log_step(step, action, reward, done, error=None):
+    print(json.dumps({
+        "event":   "STEP",
+        "step":    step,
+        "action":  action,
+        "reward":  reward,
+        "done":    done,
+        "error":   error,
+    }), flush=True)
+
+def log_end(task_id, success, steps, score, rewards):
+    print(json.dumps({
+        "event":   "END",
+        "task_id": task_id,
+        "success": success,
+        "steps":   steps,
+        "score":   score,
+        "rewards": rewards,
+    }), flush=True)
+
+# ── System prompt ──────────────────────────────────────────────
 SYSTEM_PROMPT = """You are an email triage agent.
 Respond ONLY with a JSON object, no markdown:
 {
@@ -32,7 +68,7 @@ Respond ONLY with a JSON object, no markdown:
   "escalate_to": "legal-team OR cto OR ceo OR null"
 }"""
 
-# ── Keyword fallback (used when API key is dummy) ──────────────
+# ── Keyword fallback ───────────────────────────────────────────
 KEYWORDS = {
     "urgent":  ["urgent","down","outage","critical","crash","immediate","unresponsive"],
     "billing": ["invoice","charge","refund","billing","payment","cancel","subscription","charged"],
@@ -47,12 +83,11 @@ REPLIES  = {
     "support": "Thank you for reaching out. Our support team will investigate and follow up within 24 hours.",
     "hr":      "Thank you. I have received the HR documents and will review them before the deadline.",
 }
-ESCALATE = {"urgent": "cto", "legal": "legal-team"}
+ESCALATE = {"urgent":"cto","legal":"legal-team"}
 ESCALATE_REASON = {
     "urgent": "Critical system issue requiring immediate CTO attention and emergency response.",
     "legal":  "Legal claim received requiring immediate review by legal team within deadline.",
 }
-
 
 def detect_label(email):
     text   = (email.subject + " " + email.body).lower()
@@ -60,15 +95,12 @@ def detect_label(email):
     best   = max(scores, key=scores.get)
     return best if scores[best] > 0 else "support"
 
-
 def rule_based_act(obs, labeled, prioritized, replied, escalated):
-    """Fallback rule-based agent when no real API key is set."""
     for email in obs.inbox:
         if email.id not in labeled:
             label = detect_label(email)
             labeled.add(email.id)
             return Action(action_type="label", email_id=email.id, label=label)
-
     if obs.task_id in ("task_medium", "task_hard"):
         for email in obs.inbox:
             if email.id not in prioritized:
@@ -76,7 +108,6 @@ def rule_based_act(obs, labeled, prioritized, replied, escalated):
                 priority = PRIORITY.get(label, 3)
                 prioritized.add(email.id)
                 return Action(action_type="prioritize", email_id=email.id, priority=priority)
-
     if obs.task_id == "task_hard":
         for email in obs.inbox:
             if email.id not in replied:
@@ -84,7 +115,6 @@ def rule_based_act(obs, labeled, prioritized, replied, escalated):
                 replied.add(email.id)
                 if label in REPLIES:
                     return Action(action_type="reply", email_id=email.id, reply_body=REPLIES[label])
-
         for email in obs.inbox:
             if email.id not in escalated:
                 label = detect_label(email)
@@ -96,115 +126,104 @@ def rule_based_act(obs, labeled, prioritized, replied, escalated):
                         escalate_to=ESCALATE[label],
                         reply_body=ESCALATE_REASON[label],
                     )
-
     return Action(action_type="done", email_id=obs.inbox[0].id)
 
-
-def llm_act(obs, history):
-    """Call LLM via OpenAI client pointing to HuggingFace router."""
+def get_model_message(obs, step, history):
+    """Call LLM via OpenAI client."""
     emails_text = ""
     for e in obs.inbox:
-        emails_text += f"[{e.id}] FROM: {e.sender}\nSUBJECT: {e.subject}\nBODY: {e.body}\n\n"
-
-    user_msg = (
-        f"TASK: {obs.instructions}\n"
-        f"STEP: {obs.current_step}/{obs.max_steps}\n"
-        f"SCORE SO FAR: {obs.score_so_far}\n\n"
-        f"INBOX:\n{emails_text}\n"
-        f"Choose the best single action. Output only JSON."
+        emails_text += f"[{e.id}] FROM: {e.sender}\\nSUBJECT: {e.subject}\\nBODY: {e.body}\\n\\n"
+    user_prompt = (
+        f"TASK: {obs.instructions}\\n"
+        f"STEP: {step}/{MAX_STEPS}\\n"
+        f"INBOX:\\n{emails_text}\\n"
+        f"Output only JSON."
     )
-    history.append({"role": "user", "content": user_msg})
-
-    response = client.chat.completions.create(
-        model=MODEL_NAME,
-        messages=[{"role": "system", "content": SYSTEM_PROMPT}] + history,
-        max_tokens=300,
-        temperature=0.1,
-    )
-    raw = response.choices[0].message.content.strip()
-    raw = raw.replace("```json", "").replace("```", "").strip()
-    history.append({"role": "assistant", "content": raw})
-    return Action(**json.loads(raw)), history
-
+    try:
+        completion = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user",   "content": user_prompt},
+            ],
+            temperature=TEMPERATURE,
+            max_tokens=MAX_TOKENS,
+            stream=False,
+        )
+        text = (completion.choices[0].message.content or "").strip()
+        return text if text else "done"
+    except Exception as exc:
+        print(f"[DEBUG] Model request failed: {exc}", flush=True)
+        return "done"
 
 def run_task(task_id: str, seed: int = 42) -> dict:
-    """
-    Run one full episode.
-    Emits [START], [STEP], and [END] structured logs.
-    """
     env  = EmailTriageEnv(task_id=task_id, seed=seed)
     obs  = env.reset()
 
-    use_llm     = HF_TOKEN not in ("dummy-key", "dummy-key-for-rule-based", "")
+    use_llm     = API_KEY not in ("dummy-key", "dummy-key-for-rule-based", "")
     history     = []
+    rewards     = []
     labeled     = set()
     prioritized = set()
     replied     = set()
     escalated   = set()
-    step        = 0
+    steps_taken = 0
+    score       = 0.0
+    success     = False
 
-    # ── [START] log ────────────────────────────────────────────
-    print(json.dumps({
-        "event":     "START",
-        "task_id":   task_id,
-        "seed":      seed,
-        "max_steps": obs.max_steps,
-        "n_emails":  len(obs.inbox),
-    }))
+    log_start(task=task_id, env=BENCHMARK, model=MODEL_NAME)
 
-    start_time = time.time()
-
-    while True:
-        try:
-            if use_llm:
-                action, history = llm_act(obs, history)
-            else:
+    try:
+        for step in range(1, MAX_STEPS + 1):
+            # Decide action
+            try:
+                if use_llm:
+                    raw = get_model_message(obs, step, history)
+                    raw = raw.replace("```json"," ").replace("```"," ").strip()
+                    action = Action(**json.loads(raw))
+                else:
+                    action = rule_based_act(obs, labeled, prioritized, replied, escalated)
+            except Exception:
                 action = rule_based_act(obs, labeled, prioritized, replied, escalated)
-        except Exception:
-            action = rule_based_act(obs, labeled, prioritized, replied, escalated)
 
-        result = env.step(action)
+            # Apply action
+            result  = env.step(action)
+            reward  = result.reward or 0.0
+            done    = result.done
+            error   = None
 
-        # ── [STEP] log ─────────────────────────────────────────
-        print(json.dumps({
-            "event":       "STEP",
-            "task_id":     task_id,
-            "step":        result.observation.current_step,
-            "action_type": action.action_type,
-            "email_id":    action.email_id,
-            "label":       action.label,
-            "priority":    action.priority,
-            "reward":      result.reward,
-            "done":        result.done,
-            "info":        result.info,
-        }))
+            rewards.append(reward)
+            steps_taken = step
+            obs = result.observation
 
-        obs   = result.observation
-        step += 1
+            log_step(
+                step=step,
+                action=action.model_dump(),
+                reward=reward,
+                done=done,
+                error=error,
+            )
 
-        if result.done:
-            break
+            history.append(f"Step {step}: {action.action_type} -> reward {reward:+.2f}")
 
-    episode = env.episode_result()
-    elapsed = round(time.time() - start_time, 2)
+            if done:
+                break
 
-    # ── [END] log ──────────────────────────────────────────────
-    print(json.dumps({
-        "event":            "END",
-        "task_id":          task_id,
-        "total_score":      episode.total_score,
-        "steps_taken":      episode.steps_taken,
-        "elapsed_seconds":  elapsed,
-        "grader_breakdown": episode.grader_breakdown,
-    }))
+        score   = sum(rewards) / MAX_TOTAL_REWARD if MAX_TOTAL_REWARD > 0 else 0.0
+        score   = min(max(score, 0.0), 1.0)
+        ep      = env.episode_result()
+        score   = ep.total_score
+        success = score >= SUCCESS_SCORE_THRESHOLD
+
+    finally:
+        log_end(task_id=task_id, success=success, steps=steps_taken, score=score, rewards=rewards)
 
     return {
-        "task_id":          episode.task_id,
-        "total_score":      episode.total_score,
-        "steps_taken":      episode.steps_taken,
-        "grader_breakdown": episode.grader_breakdown,
+        "task_id":          task_id,
+        "total_score":      score,
+        "steps_taken":      steps_taken,
+        "grader_breakdown": ep.grader_breakdown,
     }
-
 
 if __name__ == "__main__":
     print(json.dumps({
@@ -212,7 +231,7 @@ if __name__ == "__main__":
         "api_base_url": API_BASE_URL,
         "model_name":   MODEL_NAME,
         "tasks":        ["task_easy", "task_medium", "task_hard"],
-    }))
+    }), flush=True)
 
     results     = {}
     total_start = time.time()
@@ -228,10 +247,10 @@ if __name__ == "__main__":
         "total_elapsed": total_elapsed,
         "scores_valid":  all_valid,
         "results":       {k: v["total_score"] for k, v in results.items()},
-    }))
+    }), flush=True)
 
     with open("inference_results.json", "w") as f:
         json.dump(results, f, indent=2)
 
-    print(json.dumps({"event": "SAVED", "file": "inference_results.json"}))
-    print("INFERENCE COMPLETE")
+    print(json.dumps({"event": "SAVED", "file": "inference_results.json"}), flush=True)
+'''
