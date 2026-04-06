@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 from env.email_env import EmailTriageEnv
 from env.models import Action
 
+# Initialize FastAPI app globally
 api = FastAPI()
 _env_store = {}
 
@@ -112,12 +113,9 @@ def build_ui():
     return ui
 
 
-def main():
-    """Main entry point — required by openenv validate."""
-    ui  = build_ui()
-    app = gr.mount_gradio_app(api, ui, path="/")
-    uvicorn.run(app, host="0.0.0.0", port=7860)
+# Build the Gradio UI and mount it onto the FastAPI app globally
+gradio_ui = build_ui()
+app = gr.mount_gradio_app(api, gradio_ui, path="/")
 
 
-if __name__ == "__main__":
-    main()
+# Removed: if __name__ == "__main__": uvicorn.run(app, host="0.0.0.0", port=7860)
