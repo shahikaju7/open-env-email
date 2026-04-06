@@ -1,28 +1,23 @@
 import os
 import json
-import threading
-import uvicorn
 import gradio as gr
+import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel as PydanticBase
 from env.email_env import EmailTriageEnv
 from env.models import Action
 
 api = FastAPI()
-
 _env_store = {}
 
 
 @api.get("/health")
 def health():
-    """Validator pings this to check Space is alive."""
     return {"status": "ok", "message": "EmailTriageEnv is running"}
 
 
 @api.post("/reset")
 def reset(task_id: str = "task_easy", seed: int = 42):
-    """Start a fresh episode."""
     env = EmailTriageEnv(task_id=task_id, seed=seed)
     _env_store["current"] = env
     obs = env.reset()
@@ -31,7 +26,6 @@ def reset(task_id: str = "task_easy", seed: int = 42):
 
 @api.get("/state")
 def state():
-    """Return current environment state."""
     if "current" not in _env_store:
         env = EmailTriageEnv(task_id="task_easy", seed=42)
         _env_store["current"] = env
@@ -41,7 +35,6 @@ def state():
 
 @api.post("/step")
 def step(action: dict):
-    """Apply one action and return result."""
     if "current" not in _env_store:
         env = EmailTriageEnv(task_id="task_easy", seed=42)
         _env_store["current"] = env
@@ -64,11 +57,13 @@ def run_episode(task_id, seed):
         action = agent.act(obs)
         result = env.step(action)
         if action.action_type != "done":
-            log.append({"step": result.observation.current_step,
-                        "action": action.action_type,
-                        "email_id": action.email_id,
-                        "label": action.label,
-                        "reward": result.reward})
+            log.append({
+                "step":     result.observation.current_step,
+                "action":   action.action_type,
+                "email_id": action.email_id,
+                "label":    action.label,
+                "reward":   result.reward,
+            })
         obs = result.observation
         if result.done:
             break
@@ -86,48 +81,43 @@ def run_benchmark(seed):
         while True:
             action = agent.act(obs)
             result = env.step(action)
-            if result.done: break
+            if result.done:
+                break
             obs = result.observation
         ep = env.episode_result()
         rows.append([task_id, f"{ep.total_score:.4f}", str(ep.grader_breakdown)])
     return rows
 
 
-with gr.Blocks(title="EmailTriageEnv") as gradio_ui:
-    gr.Markdown("# EmailTriageEnv\nOpenEnv benchmark. API endpoints: /reset /step /state /health")
-    with gr.Tab("Run episode"):
-        with gr.Row():
-            task_in = gr.Dropdown(choices=["task_easy","task_medium","task_hard"], value="task_easy", label="Task")
-            seed_in = gr.Number(value=42, label="Seed", precision=0)
-            run_btn = gr.Button("Run", variant="primary")
-        with gr.Row():
-            score_out = gr.Textbox(label="Score breakdown", lines=10)
-            log_out   = gr.Textbox(label="Actions log",     lines=10)
-        run_btn.click(run_episode, inputs=[task_in, seed_in], outputs=[score_out, log_out])
-    with gr.Tab("Benchmark"):
-        bench_seed = gr.Number(value=42, label="Seed", precision=0)
-        bench_btn  = gr.Button("Run all 3 tasks", variant="primary")
-        bench_out  = gr.Dataframe(headers=["Task","Score","Breakdown"])
-        bench_btn.click(run_benchmark, inputs=[bench_seed], outputs=[bench_out])
-    with gr.Tab("API Docs"):
-        gr.Markdown("""
-## HTTP Endpoints
-| Endpoint | Method | Description |
-|---|---|---|
-| `/health` | GET | Check if Space is alive |
-| `/reset?task_id=task_easy&seed=42` | POST | Start new episode |
-| `/state` | GET | Get current state |
-| `/step` | POST | Apply one action |
+def build_ui():
+    with gr.Blocks(title="EmailTriageEnv") as ui:
+        gr.Markdown("# EmailTriageEnv\nOpenEnv benchmark. API: /reset /step /state /health")
+        with gr.Tab("Run episode"):
+            with gr.Row():
+                task_in  = gr.Dropdown(
+                    choices=["task_easy", "task_medium", "task_hard"],
+                    value="task_easy", label="Task"
+                )
+                seed_in  = gr.Number(value=42, label="Seed", precision=0)
+                run_btn  = gr.Button("Run", variant="primary")
+            with gr.Row():
+                score_out = gr.Textbox(label="Score breakdown", lines=10)
+                log_out   = gr.Textbox(label="Actions log",     lines=10)
+            run_btn.click(run_episode, inputs=[task_in, seed_in], outputs=[score_out, log_out])
+        with gr.Tab("Benchmark"):
+            bench_seed = gr.Number(value=42, label="Seed", precision=0)
+            bench_btn  = gr.Button("Run all 3 tasks", variant="primary")
+            bench_out  = gr.Dataframe(headers=["Task", "Score", "Breakdown"])
+            bench_btn.click(run_benchmark, inputs=[bench_seed], outputs=[bench_out])
+    return ui
 
-## Example
-```python
-import requests
-BASE = "https://YOUR_USERNAME-email-triage-env.hf.space"
-requests.post(f"{BASE}/reset?task_id=task_easy")
-requests.get(f"{BASE}/state")
-requests.post(f"{BASE}/step", json={"action_type":"label","email_id":"e001","label":"urgent"})
 
-   """)
+def main():
+    """Main entry point — required by openenv validate."""
+    ui  = build_ui()
+    app = gr.mount_gradio_app(api, ui, path="/")
+    uvicorn.run(app, host="0.0.0.0", port=7860)
 
-app = gr.mount_gradio_app(api, gradio_ui, path="/")
-# Removed: if __name__ == "__main__": uvicorn.run(app, host="0.0.0.0", port=7860)
+
+if __name__ == "__main__":
+    main()

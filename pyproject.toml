@@ -20,7 +20,7 @@ dependencies = [
 ]
 
 [project.scripts]
-server = "app:app"
+server = "app:main"
 
 [tool.openenv]
 name = "email-triage-env"
