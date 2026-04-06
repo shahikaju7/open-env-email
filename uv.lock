@@ -1,0 +1,16 @@
+version = 1
+requires-python = ">=3.9"
+
+[[package]]
+name = "email-triage-env"
+version = "1.0.0"
+source = { editable = "." }
+dependencies = [
+    { name = "pydantic" },
+    { name = "gradio" },
+    { name = "fastapi" },
+    { name = "uvicorn" },
+    { name = "openai" },
+    { name = "requests" },
+    { name = "openenv-core" },
+]
